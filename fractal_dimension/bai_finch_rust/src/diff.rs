@@ -1,5 +1,4 @@
 use num_complex::Complex64;
-use simba::scalar::ComplexField;
 use std::f64::consts::PI;
 
 pub type CFunction<'a> = &'a dyn Fn(Complex64) -> Complex64;
@@ -7,7 +6,7 @@ pub type Path<'a> = &'a dyn Fn(f64) -> Complex64;
 pub type Rule<'a> = &'a dyn Fn(CFunction, Complex64, Complex64) -> Complex64;
 
 pub fn unit_circle(t: f64) -> Complex64 {
-    num::Complex::new((2.0 * PI * t).cos(), (2.0 * PI * t).sin())
+    Complex64::new((2.0 * PI * t).cos(), (2.0 * PI * t).sin())
 }
 
 pub fn trapezoid(f: CFunction, a: Complex64, b: Complex64) -> Complex64 {
@@ -32,15 +31,13 @@ fn test(t: f64) -> Complex64 {
 // }
 
 pub fn diff(fun: CFunction, a: Complex64, n: i32) -> Result<Complex64, String> {
-    let f = |z: Complex64| -> Complex64 {
-        fun(z) / (z - a).powi(n + 1)
-    };
+    let f = |z: Complex64| -> Complex64 { fun(z) / (z - a).powi(n + 1) };
     let integral = integrate(&f, &unit_circle, &trapezoid);
     Ok(integral * Complex64::new(factorial(n) as f64, 0.0) / Complex64::new(0.0, 2.0 * PI))
 }
 
 pub fn integrate(f: CFunction, path: Path, rule: Rule) -> Complex64 {
-    let increment = 0.00001;
+    let increment = 0.05;
     let mut integral = Complex64::new(0.0, 0.0);
 
     let mut i = increment;
