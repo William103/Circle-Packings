@@ -1,143 +1,32 @@
-use gad::prelude::*;
-use nalgebra::{SMatrix, SVector};
-use num::Complex;
+#![allow(dead_code)]
+
+mod diff;
+
+use diff::*;
+use num_complex::Complex64;
+use std::f64::consts::PI;
+// use nalgebra::{SMatrix, SVector};
 
 type F = f64;
-type Matrix2x2 = SMatrix<Complex<F>, 2, 2>;
+// type NComplex = num::Complex<F>;
+// type Matrix2x2 = SMatrix<num::Complex<F>, 2, 2>;
+// type Complex = Complex64;
 
-fn sum(
-    g: &mut GraphN,
-    ar: &Value<F>,
-    ai: &Value<F>,
-    br: &Value<F>,
-    bi: &Value<F>,
-) -> Result<(Value<F>, Value<F>)> {
-    Ok((g.add(ar, br)?, g.add(ai, bi)?))
-}
+// fn power_method<const N: usize>(
+//     vec: SVector<NComplex, N>,
+//     mat: SMatrix<NComplex, N, N>,
+//     iterations: usize,
+// ) -> NComplex {
+//     let mut current = vec;
+//     let mut previous = vec;
+//     for _ in 0..iterations {
+//         previous = current;
+//         current = mat * current;
+//         println!("current guess: {}", current[0] / previous[0]);
+//     }
 
-fn product(
-    g: &mut GraphN,
-    ar: &Value<F>,
-    ai: &Value<F>,
-    br: &Value<F>,
-    bi: &Value<F>,
-) -> Result<(Value<F>, Value<F>)> {
-    let t1 = g.mul(ar, br)?;
-    let t2 = g.mul(ai, bi)?;
-    let t3 = g.sub(&t1, &t2)?;
-
-    let s1 = g.mul(ar, bi)?;
-    let s2 = g.mul(ai, br)?;
-    let s3 = g.add(&s1, &s2)?;
-
-    Ok((t3, s3))
-}
-
-fn division(
-    g: &mut GraphN,
-    ar: &Value<F>,
-    ai: &Value<F>,
-    br: &Value<F>,
-    bi: &Value<F>,
-) -> Result<(Value<F>, Value<F>)> {
-    let numerator1 = {
-        let t1 = g.mul(ar, br)?;
-        let t2 = g.mul(ai, bi)?;
-        g.add(&t1, &t2)?
-    };
-    let denominator1 = {
-        let t1 = g.mul(br, br)?;
-        let t2 = g.mul(bi, bi)?;
-        g.add(&t1, &t2)?
-    };
-
-    let numerator2 = {
-        let t1 = g.mul(ar, bi)?;
-        let t2 = g.mul(ai, br)?;
-        g.sub(&t1, &t2)?
-    };
-    let denominator2 = {
-        let t1 = g.mul(br, br)?;
-        let t2 = g.mul(bi, bi)?;
-        g.add(&t1, &t2)?
-    };
-
-    let f1 = g.div(&numerator1, &denominator1)?;
-    let f2 = g.div(&numerator2, &denominator2)?;
-
-    Ok((f1, f2))
-}
-
-fn mobius_derivative(mat: Matrix2x2) -> Result<(Value<F>, Value<F>)> {
-    let mut g = GraphN::new();
-    let x = g.variable(0.0);
-    let y = g.variable(0.0);
-    let a11r = g.constant(mat[(0, 0)].re);
-    let a12r = g.constant(mat[(0, 1)].re);
-    let a21r = g.constant(mat[(1, 0)].re);
-    let a22r = g.constant(mat[(1, 1)].re);
-
-    let a11i = g.constant(mat[(0, 0)].im);
-    let a12i = g.constant(mat[(0, 1)].im);
-    let a21i = g.constant(mat[(1, 0)].im);
-    let a22i = g.constant(mat[(1, 1)].im);
-
-    let (numeratorr, numeratori) = {
-        let (prodr, prodi) = product(&mut g, &x, &y, &a11r, &a11i)?;
-        sum(&mut g, &a12r, &a12i, &prodr, &prodi)?
-    };
-
-    let (denominatorr, denominatori) = {
-        let (prodr, prodi) = product(&mut g, &x, &y, &a21r, &a21i)?;
-        sum(&mut g, &a22r, &a22i, &prodr, &prodi)?
-    };
-
-    let (resultr, resulti) = division(
-        &mut g,
-        &numeratorr,
-        &numeratori,
-        &denominatorr,
-        &denominatori,
-    )?;
-
-    let x = x.gid()?;
-
-    let one = g.constant(1.0);
-    let one2 = g.constant(1.0);
-    let gradients1 = g.compute_gradients(resultr.gid()?, one)?;
-    let gradients2 = g.compute_gradients(resulti.gid()?, one2)?;
-
-    let du_dx = gradients1.get(x).unwrap();
-    let dv_dx = gradients2.get(x).unwrap();
-
-    Ok(Complex::new(*du_dx.data(), -*dv_dx.data()))
-}
-
-fn next_order_derivative(
-    g: &mut GraphN,
-    expr: &GradientId<F>,
-    var: &GradientId<F>,
-) -> Result<Value<F>> {
-    let dz = g.constant(1.0);
-    let dz_d = g.compute_gradients(*expr, dz)?;
-    Ok(dz_d.get(*var).unwrap().clone())
-}
-
-fn power_method<const N: usize>(
-    vec: SVector<Complex<F>, N>,
-    mat: SMatrix<Complex<F>, N, N>,
-    iterations: usize,
-) -> Complex<F> {
-    let mut current = vec;
-    let mut previous = vec;
-    for _ in 0..iterations {
-        previous = current;
-        current = mat * current;
-        println!("current guess: {}", current[0] / previous[0]);
-    }
-
-    current[0] / previous[0]
-}
+//     current[0] / previous[0]
+// }
 
 fn secant_method(f: fn(F) -> F, x0: F, x1: F, accuracy: F, iterations: usize) -> F {
     let mut x0 = x0;
@@ -158,6 +47,13 @@ fn secant_method(f: fn(F) -> F, x0: F, x1: F, accuracy: F, iterations: usize) ->
     x0
 }
 
+fn dzdt(t: f64) -> Complex64 {
+    Complex64::new(
+	-2.0 * PI * (-2.0 * PI * t).sin(),
+	 2.0 * PI * ( 2.0 * PI * t).cos(),
+    )
+}
+
 fn main() {
     // let g = Matrix2x2::new(
     //     Complex::new(2.0 / 12.0, -2.0 / 12.0),
@@ -172,4 +68,29 @@ fn main() {
     //     Complex::new(0.0, 4.0 / 12.0),
     //     Complex::new(-6.0 / 12.0, -8.0 / 12.0),
     // );
+
+    println!(
+        "{}",
+        diff(&|z: Complex64| z * z, Complex64::new(0.3, 0.3), 1).unwrap()
+    );
+
+    // println!(
+    //     "{}",
+    //     bacon_sci::integrate::integrate(
+    //         0.0,
+    //         1.0,
+    //         &|t: f64| dzdt(t)
+    //             / Complex64::new(
+    //                 (std::f64::consts::PI * 2.0 * t).cos(),
+    //                 (std::f64::consts::PI * 2.0 * t).sin()
+    //             ),
+    //         0.001
+    //     )
+    //     .unwrap()
+    // );
+
+    println!(
+	"{}",
+	integrate(&|z: Complex64| 1.0 / z, &unit_circle, &trapezoid)
+    );
 }
