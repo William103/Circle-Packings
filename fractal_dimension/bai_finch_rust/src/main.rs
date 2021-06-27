@@ -1,12 +1,13 @@
 #![allow(dead_code)]
 
 use num_complex::Complex64;
+use nalgebra::{VecStorage, Const};
 use rayon::prelude::*;
 
 type F = f64;
 type Matrix2x2 = nalgebra::SMatrix<Complex64, 2, 2>;
-type MatrixBig = nalgebra::SMatrix<Complex64, NC2, NC2>;
-type MatrixBigr = nalgebra::SMatrix<f64, NC2, NC2>;
+type MatrixBig = nalgebra::Matrix<Complex64, Const<NC2>, Const<NC2>, VecStorage<Complex64, Const<NC2>, Const<NC2>>>;
+type MatrixBigr = nalgebra::Matrix<f64, Const<NC2>, Const<NC2>, VecStorage<f64, Const<NC2>, Const<NC2>>>;
 
 const G: Matrix2x2 = Matrix2x2::new(
     Complex64::new(2.0 / 12.0, -2.0 / 12.0),
@@ -22,9 +23,9 @@ const R: Matrix2x2 = Matrix2x2::new(
     Complex64::new(-6.0 / 12.0, -8.0 / 12.0),
 );
 
-const NC: usize = 15;
+const NC: usize = 10;
 const K0: i32 = 100;
-const LC: usize = 7;
+const LC: usize = 5;
 const NC2: usize = NC * NC;
 
 fn fancy_l(q: f64) -> MatrixBigr {
@@ -58,7 +59,7 @@ fn normal_f(q: f64, n: i32, s: i32, l: i32) -> Complex64 {
     let g21 = G[(1, 0)];
     let g22 = G[(1, 1)];
     (0..=s)
-        .into_par_iter()
+        .into_iter()
         .map(|j: i32| -> Complex64 {
             non_integral_choose(-n as f64 - q, j)
                 * integral_choose(n, s - j)
@@ -101,7 +102,7 @@ fn normal_f(q: f64, n: i32, s: i32, l: i32) -> Complex64 {
 fn zeta(s: f64, k0: i32) -> f64 {
     const UPPER_BOUND: i32 = 40_000;
     (k0..=UPPER_BOUND)
-        .into_par_iter()
+        .into_iter()
         .map(|j| (j as f64).powf(-s))
         .sum::<f64>()
         - (UPPER_BOUND as f64).powf(1.0 - s) / (1.0 - s)
@@ -144,7 +145,7 @@ fn normal_m(k: i32, q: f64, n: i32, s: i32) -> Complex64 {
     let a22 = ak[(1, 1)];
 
     (0..=s)
-        .into_par_iter()
+        .into_iter()
         .map(|j| {
             non_integral_choose(-n as f64 - q, j)
                 * integral_choose(n, s - j)
