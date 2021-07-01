@@ -1,13 +1,11 @@
 #![allow(dead_code)]
 
 use num_complex::Complex64;
-use nalgebra::{VecStorage, Const};
-use rayon::prelude::*;
 
 type F = f64;
 type Matrix2x2 = nalgebra::SMatrix<Complex64, 2, 2>;
-type MatrixBig = nalgebra::Matrix<Complex64, Const<NC2>, Const<NC2>, VecStorage<Complex64, Const<NC2>, Const<NC2>>>;
-type MatrixBigr = nalgebra::Matrix<f64, Const<NC2>, Const<NC2>, VecStorage<f64, Const<NC2>, Const<NC2>>>;
+type MatrixBig = nalgebra::DMatrix<Complex64>;
+type MatrixBigr = nalgebra::DMatrix<f64>;
 
 const G: Matrix2x2 = Matrix2x2::new(
     Complex64::new(2.0 / 12.0, -2.0 / 12.0),
@@ -23,13 +21,45 @@ const R: Matrix2x2 = Matrix2x2::new(
     Complex64::new(-6.0 / 12.0, -8.0 / 12.0),
 );
 
-const NC: usize = 10;
+const NC: usize = 5;
 const K0: i32 = 100;
-const LC: usize = 5;
+const LC: usize = 3;
 const NC2: usize = NC * NC;
+const UPPER_BOUND: i32 = 10_000;
 
 fn fancy_l(q: f64) -> MatrixBigr {
-    MatrixBigr::from_diagonal_element(2.0) * (fancy_m(q) + fancy_f(q)).map(|z| z.re)
+    let mut fancy_l = MatrixBigr::zeros(NC2, NC2);
+    for m in 0..NC {
+	for n in 0..NC {
+	    for r in 0..NC {
+		for s in 0..NC {
+                    if m <= n {
+                        let mut sum_m = Complex64::new(0.0, 0.0);
+                        for k in 1..K0 {
+                            sum_m += normal_m(k, q, n as i32, s as i32)
+                                * normal_m(k as i32, q, m as i32, r as i32).conj();
+                        }
+			let sum_f = (0..=LC)
+                            .map(|l: usize| -> Complex64 {
+                                zeta(l as f64 + 2.0 * q, K0)
+                                    * (0..=l)
+                                        .map(|lp| {
+                                            normal_f(q, m as i32, r as i32, (l - lp) as i32)
+                                                * normal_f(q, n as i32, s as i32, lp as i32).conj()
+                                        })
+                                        .sum::<Complex64>()
+                            })
+                            .sum::<Complex64>();
+                        fancy_l[(m * NC + n, r * NC + s)] = 2.0 * (sum_m.re + sum_f.re);
+                    } else {
+                        fancy_l[(m * NC + n, r * NC + s)] = fancy_l[(n * NC + m, s * NC + r)];
+                    }
+		}
+	    }
+	}
+    }
+    fancy_l
+    // MatrixBigr::from_diagonal_element(NC2, NC2, 2.0) * (fancy_m(q) + fancy_f(q)).map(|z| z.re)
 }
 
 fn integral_choose(n: i32, k: i32) -> f64 {
@@ -100,7 +130,6 @@ fn normal_f(q: f64, n: i32, s: i32, l: i32) -> Complex64 {
 }
 
 fn zeta(s: f64, k0: i32) -> f64 {
-    const UPPER_BOUND: i32 = 40_000;
     (k0..=UPPER_BOUND)
         .into_iter()
         .map(|j| (j as f64).powf(-s))
@@ -109,7 +138,7 @@ fn zeta(s: f64, k0: i32) -> f64 {
 }
 
 fn fancy_f(q: f64) -> MatrixBig {
-    let mut fancy_f = MatrixBig::zeros();
+    let mut fancy_f = MatrixBig::zeros(NC2, NC2);
     for m in 0..NC {
         for n in 0..NC {
             for r in 0..NC {
@@ -158,7 +187,7 @@ fn normal_m(k: i32, q: f64, n: i32, s: i32) -> Complex64 {
 }
 
 fn fancy_m(q: f64) -> MatrixBig {
-    let mut fancy_m = MatrixBig::zeros();
+    let mut fancy_m = MatrixBig::zeros(NC2, NC2);
     for m in 0..NC {
         for n in 0..NC {
             for r in 0..NC {
@@ -201,22 +230,22 @@ fn secant_method(f: fn(F) -> F, target: F, x0: F, x1: F, accuracy: F, iterations
     x0
 }
 
-fn power_method<const N: usize>(
-    vec: nalgebra::SVector<f64, N>,
-    mat: nalgebra::SMatrix<f64, N, N>,
+fn power_method(
+    vec: nalgebra::DVector<f64>,
+    mat: nalgebra::DMatrix<f64>,
     iterations: usize,
     tolerance: f64,
 ) -> f64 {
-    let mut previous = vec;
+    let mut previous_entry = vec[0];
     let mut previous_val = 0f64;
-    let mut current = mat * vec;
-    let mut current_val = current[0] / previous[0];
+    let mut current = mat.clone() * vec;
+    let mut current_val = current[0] / previous_entry;
     let mut count = 0;
     while count < iterations && (current_val - previous_val).abs() > tolerance {
         previous_val = current_val;
-        previous = current;
-        current = mat * current;
-        current_val = current[0] / previous[0];
+        previous_entry = current[0];
+        current = mat.clone() * current;
+        current_val = current[0] / previous_entry;
         count += 1;
     }
 
@@ -224,13 +253,19 @@ fn power_method<const N: usize>(
     current_val
 }
 
+fn test(x: f64) -> f64 {
+    x.cos() - x
+}
+
 fn lambda(q: f64) -> f64 {
     let lq = fancy_l(q);
-    let mut phi0 = nalgebra::SVector::zeros();
+    let mut phi0 = nalgebra::DVector::zeros(NC2);
     phi0[0] = 1.0;
     power_method(phi0, lq, 50, std::f64::EPSILON)
 }
 
 fn main() {
-    secant_method(lambda, 1.0, 1.3, 1.31, f64::EPSILON, 10);
+    secant_method(lambda, 1.0, 1.3, 1.31, f64::EPSILON, 100);
+    // secant_method(test, 0.0, 0.0, 1.0, f64::EPSILON, 100);
+    // println!("{}", normal_m(10, 1.3, 2, 2));
 }
