@@ -29,8 +29,8 @@ pub fn fractal_dimension(
                     let mut add = false;
                     for (j, curvature) in new_tuple.iter().enumerate() {
                         let mut skip = false;
-                        for face in &faces[i] {
-                            if j == *face {
+                        for vertex in &faces[i] {
+                            if j == *vertex {
                                 skip = true;
                                 break;
                             }
