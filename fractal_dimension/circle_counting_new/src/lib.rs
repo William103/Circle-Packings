@@ -20,6 +20,7 @@ pub fn fractal_dimension(
         .collect();
 
     let mut i = 0;
+
     loop {
         next.clear();
         for (tuple, previous_generator) in &current {
@@ -54,7 +55,6 @@ pub fn fractal_dimension(
             }
         }
         std::mem::swap(&mut current, &mut next);
-
         
         i += 1;
         if generations != 0 && i > generations {
