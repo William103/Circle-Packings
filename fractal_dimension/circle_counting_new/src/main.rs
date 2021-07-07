@@ -1,79 +1,107 @@
-use nalgebra::{SMatrix, SVector};
-use linregress::{FormulaRegressionBuilder, RegressionDataBuilder};
+#![allow(dead_code)]
 
-type Matrix4 = SMatrix<f64, 4, 4>;
-type Vector4 = SVector<f64, 4>;
+use crate::{lib::fractal_dimension, parser::read_file};
+use std::process;
+use structopt::StructOpt;
 
-fn search(generators: &Vec<Matrix4>, root: Vector4, upper_bound: f64) -> usize {
-    let mut current = vec![(root, 5)];
-    let mut next = vec![];
-    let mut total = 0;
-    loop {
-        next.clear();
-        for (tuple, previous_generator) in &current {
-            for (i, generator) in generators.iter().enumerate() {
-                let new_tuple = generator * tuple;
-                if !(i == 0 && *previous_generator == 3) && !(i == 1 && *previous_generator == 2) && i != *previous_generator && new_tuple[i] < upper_bound && new_tuple.iter().sum::<f64>() > tuple.iter().sum() {
-                    next.push((new_tuple, i));
-                }
-            }
-        }
+use ansi_term::Color::Yellow;
 
-        if current.is_empty() {
-            break;
-        }
-        total += next.len();
-        std::mem::swap(&mut current, &mut next);
-    }
-    2 * (total + root.len())
-}
+mod lib;
+mod parser;
 
-fn fractal_dimension(generators: Vec<Matrix4>, root: Vector4, upper_bound: f64, n: isize) -> Result<f64, linregress::Error> {
-    let xs: Vec<f64> = (1..=n).map(|x| (x as f64 * upper_bound / (n as f64)).ln()).collect();
-    let ys: Vec<f64> = xs.iter().map(|upper_bound| (search(&generators, root, upper_bound.exp()) as f64).ln()).collect();
+/// Compute fractal dimension of crystallographic packings via the circle counting method
+#[derive(StructOpt)]
+#[structopt(name = "Circle Counter")]
+struct Opt {
+    /// File containing data in the order generators, root, faces
+    #[structopt(name = "data file")]
+    data_file: String,
 
-    let data = vec![("Y", ys), ("X", xs)];
-    let data = RegressionDataBuilder::new().build_from(data)?;
+    /// Activate debug mode
+    #[structopt(short, long)]
+    debug: bool,
 
-    let formula = "Y ~ X";
-    let model = FormulaRegressionBuilder::new()
-        .data(&data)
-        .formula(formula)
-        .fit()?;
+    /// Number of sample points in linear regression
+    #[structopt(short, long, default_value = "50")]
+    n: usize,
 
-    let parameters = model.parameters;
-    Ok(parameters.regressor_values[0])
+    /// Maximum curvature of circles
+    #[structopt(short, long, default_value = "1000000")]
+    max: f64,
+
+    /// Whether or not to time excecution (automatically enabled by --debug)
+    #[structopt(short, long)]
+    time: bool,
 }
 
 fn main() {
-    let generators = vec![
-        Matrix4::new(
-            -1.0, 2.0, 2.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
-        ),
-        Matrix4::new(
-            1.0, 0.0, 0.0, 0.0,
-            2.0, -1.0, 0.0, 2.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
-        ),
-        Matrix4::new(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            2.0, 0.0, -1.0, 2.0,
-            0.0, 0.0, 0.0, 1.0,
-        ),
-        Matrix4::new(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 2.0, 2.0, -1.0,
-        ),
-    ];
+    let opt = Opt::from_args();
+    let debug = opt.debug;
+    let time = debug || opt.time;
 
-    let root = Vector4::new(-2., 4., 5., 9.);
+    let beginning = std::time::Instant::now();
 
-    println!("{}", fractal_dimension(generators, root, 10_000_000.0, 50).unwrap());
+    let (generators, root, faces) = read_file(&opt.data_file).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(-1);
+    });
+
+    let after_parsing = std::time::Instant::now();
+    if time {
+        let duration = after_parsing.duration_since(beginning);
+        println!(
+            "Took {}s to parse {}",
+            duration.as_secs_f64(),
+            opt.data_file
+        );
+    }
+
+    if debug {
+        println!(
+            "{} (parsed from command args):\t{}",
+            Yellow.paint("max"),
+            opt.max
+        );
+        println!(
+            "{} (parsed from command args):\t{}",
+            Yellow.paint("n"),
+            opt.n
+        );
+    }
+
+    if debug {
+        println!(
+            "{} (parsed from file {})",
+            Yellow.paint("Generators"),
+            opt.data_file
+        );
+        for generator in &generators {
+            println!("{}", generator);
+        }
+        println!(
+            "{} (parsed from file {}):",
+            Yellow.paint("Root Tuple"),
+            opt.data_file
+        );
+        println!("{}", root);
+        println!(
+            "{} (parsed from file {}):",
+            Yellow.paint("Faces"),
+            opt.data_file
+        );
+        println!("{:?}\n", faces);
+    }
+
+    let delta = fractal_dimension(generators, root, faces, opt.max, opt.n, debug).unwrap();
+    let after_computing = std::time::Instant::now();
+    if time {
+        let duration1 = after_computing.duration_since(after_parsing);
+        let duration2 = after_computing.duration_since(beginning);
+        println!(
+            "\nTook {}s to compute fractal dimension; {}s total",
+            duration1.as_secs_f64(),
+            duration2.as_secs_f64()
+        );
+    }
+    println!("\n{}", delta);
 }
