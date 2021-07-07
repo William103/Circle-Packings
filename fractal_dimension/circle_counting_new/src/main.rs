@@ -32,12 +32,17 @@ struct Opt {
     /// Whether or not to time excecution (automatically enabled by --debug)
     #[structopt(short, long)]
     time: bool,
+
+    /// Cap on the number of generations (0 means no cap)
+    #[structopt(short, long, default_value = "0")]
+    generations: usize,
 }
 
 fn main() {
     let opt = Opt::from_args();
     let debug = opt.debug;
     let time = debug || opt.time;
+    let generations = opt.generations;
 
     let beginning = std::time::Instant::now();
 
@@ -92,7 +97,7 @@ fn main() {
         println!("{:?}\n", faces);
     }
 
-    let delta = fractal_dimension(generators, root, faces, opt.max, opt.n, debug).unwrap();
+    let delta = fractal_dimension(generators, root, faces, opt.max, opt.n, debug, generations).unwrap();
     let after_computing = std::time::Instant::now();
     if time {
         let duration1 = after_computing.duration_since(after_parsing);

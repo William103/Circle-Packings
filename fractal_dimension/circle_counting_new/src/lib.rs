@@ -9,6 +9,7 @@ pub fn fractal_dimension(
     upper_bound: f64,
     n: usize,
     debug: bool,
+    generations: usize
 ) -> Result<f64, linregress::Error> {
     let mut totals = vec![root.len(); n];
     let mut current = vec![(root, std::usize::MAX)];
@@ -54,7 +55,11 @@ pub fn fractal_dimension(
         }
         std::mem::swap(&mut current, &mut next);
 
+        
         i += 1;
+        if generations != 0 && i > generations {
+            break;
+        }
         if debug {
             println!("Generation {}:", i);
             println!("\tnumber of leaves:\t{}", current.len());
