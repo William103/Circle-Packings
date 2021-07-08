@@ -66,7 +66,8 @@ pub fn fractal_dimension(
             println!("Generation {}:", i);
             println!("\tnumber of leaves:\t{}", current.len());
             if !current.is_empty() {
-                println!("\trandom tuple:\t\t{}", current[current.len() / 2].0);
+                let tuple = &current[current.len() / 2];
+                println!("\trandom tuple:\t\t{}", tuple.0);
             }
             println!();
         }
