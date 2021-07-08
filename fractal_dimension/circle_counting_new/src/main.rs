@@ -97,16 +97,33 @@ fn main() {
         println!("{:?}\n", faces);
     }
 
-    let delta = fractal_dimension(generators, root, faces, opt.max, opt.n, debug, generations).unwrap();
+    let delta =
+        fractal_dimension(generators, root, faces, opt.max, opt.n, debug, generations).unwrap();
     let after_computing = std::time::Instant::now();
     if time {
         let duration1 = after_computing.duration_since(after_parsing);
         let duration2 = after_computing.duration_since(beginning);
-        println!(
-            "\nTook {}s to compute fractal dimension; {}s total",
-            duration1.as_secs_f64(),
-            duration2.as_secs_f64()
-        );
+
+        let time1 = duration1.as_secs_f64();
+        let time2 = duration2.as_secs_f64();
+
+        let seconds1 = time1 % 60.0;
+        let seconds2 = time2 % 60.0;
+
+        let minutes1 = (time1 as isize) / 60;
+        let minutes2 = (time2 as isize) / 60;
+
+        if minutes1 > 0 {
+            println!(
+                "\nTook {}m {}s to compute fractal dimension; {}m {}s total",
+                minutes1, seconds1, minutes2, seconds2
+            );
+        } else {
+            println!(
+                "\nTook {}s to compute fractal dimension; {}s total",
+                seconds1, seconds2,
+            );
+        }
     }
     println!("\n{}", delta);
 }
