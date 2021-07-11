@@ -1,6 +1,7 @@
 use std::fs;
 
 use nalgebra::{DMatrix, DVector};
+use ansi_term::Color::Red;
 
 #[derive(Debug, PartialEq)]
 enum TokenType {
@@ -215,7 +216,8 @@ fn matrix_to_rust_value_flat(value: &Value) -> Result<Vec<f64>, String> {
 pub type Generator = DMatrix<f64>;
 pub type Root = DVector<f64>;
 pub type FaceList = Vec<Vec<usize>>;
-pub type Data = (Vec<Generator>, Root, FaceList);
+pub type OrthogonalGenerators = Vec<Vec<usize>>;
+pub type Data = (Vec<Generator>, Root, FaceList, OrthogonalGenerators);
 pub fn read_file(filename: &str) -> Result<Data, String> {
     let contents = match fs::read_to_string(filename) {
         Ok(contents) => contents,
@@ -245,7 +247,23 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
         .map(|v| v.iter().map(|x| x.round() as usize).collect())
         .collect();
 
-    Ok((generators, DVector::from_column_slice(&root), faces))
+    let orthogonal_generators: Vec<Vec<usize>> = if results.len() >= 3 {
+        vec![]
+    } else {
+        matrix_to_rust_value(&results[3])?
+            .iter()
+            .map(|v| v.iter().map(|x| x.round() as usize).collect())
+            .collect()
+    };
+
+    for pair in &orthogonal_generators {
+        if pair.len() != 2 {
+            eprintln!("{}\nGot:\t{:?}", Red.paint(format!("Can only have at most two mutually orthogonal generators for now!")), pair);
+            std::process::exit(-1);
+        }
+    }
+
+    Ok((generators, DVector::from_column_slice(&root), faces, orthogonal_generators))
 }
 
 #[cfg(test)]

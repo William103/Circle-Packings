@@ -9,7 +9,8 @@ pub fn fractal_dimension(
     upper_bound: f64,
     n: usize,
     debug: bool,
-    generations: usize
+    generations: usize,
+    orthogonal_generators: Vec<Vec<usize>>,
 ) -> Result<f64, linregress::Error> {
     let mut totals = vec![root.len(); n];
     let mut current = vec![(root, std::usize::MAX, false)];
@@ -25,8 +26,21 @@ pub fn fractal_dimension(
         next.clear();
         for (tuple, previous_generator, bad) in &current {
             for (i, generator) in generators.iter().enumerate() {
+                let mut skip = false;
+                for orthogonal_pairs in &orthogonal_generators {
+                    if i == orthogonal_pairs[1] && *previous_generator == orthogonal_pairs[0] {
+                        skip = true;
+                        break;
+                    }
+                }
+                if skip {
+                    continue;
+                }
                 if i != *previous_generator {
                     let new_tuple = generator * tuple;
+                    if new_tuple.iter().sum::<f64>() <= tuple.iter().sum() {
+                        continue;
+                    }
                     let mut add = false;
                     for (j, curvature) in new_tuple.iter().enumerate() {
                         let mut skip = false;

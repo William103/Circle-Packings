@@ -46,7 +46,7 @@ fn main() {
 
     let beginning = std::time::Instant::now();
 
-    let (generators, root, faces) = read_file(&opt.data_file).unwrap_or_else(|err| {
+    let (generators, root, faces, orthogonal_generators) = read_file(&opt.data_file).unwrap_or_else(|err| {
         eprintln!("{}", err);
         process::exit(-1);
     });
@@ -95,10 +95,16 @@ fn main() {
             opt.data_file
         );
         println!("{:?}\n", faces);
+        println!(
+            "{} (parsed from file {}):",
+            Yellow.paint("Orthogonal Generators"),
+            opt.data_file
+        );
+        println!("{:?}\n", orthogonal_generators);
     }
 
     let delta =
-        fractal_dimension(generators, root, faces, opt.max, opt.n, debug, generations).unwrap();
+        fractal_dimension(generators, root, faces, opt.max, opt.n, debug, generations, orthogonal_generators).unwrap();
     let after_computing = std::time::Instant::now();
     if time {
         let duration1 = after_computing.duration_since(after_parsing);
