@@ -247,7 +247,7 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
         .map(|v| v.iter().map(|x| x.round() as usize).collect())
         .collect();
 
-    let orthogonal_generators: Vec<Vec<usize>> = if results.len() >= 3 {
+    let orthogonal_generators: Vec<Vec<usize>> = if results.len() < 4 {
         vec![]
     } else {
         matrix_to_rust_value(&results[3])?
