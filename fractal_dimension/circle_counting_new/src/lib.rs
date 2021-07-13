@@ -52,7 +52,6 @@ pub fn fractal_dimension(
                         if count > 1 {
                             can_add = false;
                             add = false;
-                            println!("MORE THAN ONE NEGATIVE:\t{}", new_tuple);
                             break;
                         }
                         for vertex in &faces[i] {
