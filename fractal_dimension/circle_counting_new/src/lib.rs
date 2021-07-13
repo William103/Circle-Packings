@@ -42,8 +42,19 @@ pub fn fractal_dimension(
                         continue;
                     }
                     let mut add = false;
+                    let mut count = 0;
+                    let mut can_add = true;
                     for (j, curvature) in new_tuple.iter().enumerate() {
                         let mut skip = false;
+                        if *curvature < 0.0 {
+                            count += 1;
+                        }
+                        if count > 1 {
+                            can_add = false;
+                            add = false;
+                            println!("MORE THAN ONE NEGATIVE:\t{}", new_tuple);
+                            break;
+                        }
                         for vertex in &faces[i] {
                             if j == *vertex {
                                 skip = true;
@@ -63,7 +74,7 @@ pub fn fractal_dimension(
                     if add {
                         next.push((new_tuple, i, false));
                     } else {
-                        if !bad {
+                        if !bad && can_add {
                             next.push((new_tuple, i, true));
                         }
                     }
