@@ -1,6 +1,6 @@
+use ansi_term::Color::Yellow;
 use linregress::{FormulaRegressionBuilder, RegressionDataBuilder};
 use nalgebra::{DMatrix, DVector};
-use ansi_term::Color::Yellow;
 
 pub fn fractal_dimension(
     generators: Vec<DMatrix<f64>>,
@@ -42,18 +42,8 @@ pub fn fractal_dimension(
                         continue;
                     }
                     let mut add = false;
-                    let mut count = 0;
-                    let mut can_add = true;
                     for (j, curvature) in new_tuple.iter().enumerate() {
                         let mut skip = false;
-                        if *curvature < 0.0 {
-                            count += 1;
-                        }
-                        if count > 1 {
-                            can_add = false;
-                            add = false;
-                            break;
-                        }
                         for vertex in &faces[i] {
                             if j == *vertex {
                                 skip = true;
@@ -73,7 +63,7 @@ pub fn fractal_dimension(
                     if add {
                         next.push((new_tuple, i, false));
                     } else {
-                        if !bad && can_add {
+                        if !bad {
                             next.push((new_tuple, i, true));
                         }
                     }
@@ -81,7 +71,7 @@ pub fn fractal_dimension(
             }
         }
         std::mem::swap(&mut current, &mut next);
-        
+
         i += 1;
         if generations != 0 && i > generations {
             break;
@@ -104,7 +94,10 @@ pub fn fractal_dimension(
     if debug {
         println!("{}", Yellow.paint("Done counting circles!"));
         println!("sample points:\n{:?}", xs);
-        println!("\nnumber of circles fewer than each of those sample points:\n{:?}", totals);
+        println!(
+            "\nnumber of circles fewer than each of those sample points:\n{:?}",
+            totals
+        );
     }
 
     let xs: Vec<f64> = xs.iter().map(|x| x.ln()).collect();
