@@ -15,9 +15,11 @@ pub fn fractal_dimension(
     let mut totals = vec![root.len(); n];
     let mut current = vec![(root, std::usize::MAX, false)];
     let mut next = vec![];
+    let mut nodes = 1;
 
     let xs: Vec<f64> = (1..=n)
-        .map(|x| (x as f64 * upper_bound / (n as f64)))
+        // .map(|x| (x as f64 * upper_bound / (n as f64)))
+        .map(|x| (x as f64 * upper_bound / (2.0 * n as f64) + upper_bound / 2.0))
         .collect();
 
     let mut i = 0;
@@ -62,9 +64,11 @@ pub fn fractal_dimension(
                     }
                     if add {
                         next.push((new_tuple, i, false));
+                        nodes += 1;
                     } else {
                         if !bad {
                             next.push((new_tuple, i, true));
+                            nodes += 1;
                         }
                     }
                 }
@@ -98,6 +102,7 @@ pub fn fractal_dimension(
             "\nnumber of circles fewer than each of those sample points:\n{:?}",
             totals
         );
+        println!("\nTotal number of nodes:\t{}", nodes);
     }
 
     let xs: Vec<f64> = xs.iter().map(|x| x.ln()).collect();
