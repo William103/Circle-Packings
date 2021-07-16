@@ -30,16 +30,16 @@ const UPPER_BOUND: i32 = 10_000;
 fn fancy_l(q: f64) -> MatrixBigr {
     let mut fancy_l = MatrixBigr::zeros(NC2, NC2);
     for m in 0..NC {
-	for n in 0..NC {
-	    for r in 0..NC {
-		for s in 0..NC {
+        for n in 0..NC {
+            for r in 0..NC {
+                for s in 0..NC {
                     if m <= n {
                         let mut sum_m = Complex64::new(0.0, 0.0);
                         for k in 1..K0 {
                             sum_m += normal_m(k, q, n as i32, s as i32)
                                 * normal_m(k as i32, q, m as i32, r as i32).conj();
                         }
-			let sum_f = (0..=LC)
+                        let sum_f = (0..=LC)
                             .map(|l: usize| -> Complex64 {
                                 zeta(l as f64 + 2.0 * q, K0)
                                     * (0..=l)
@@ -54,9 +54,9 @@ fn fancy_l(q: f64) -> MatrixBigr {
                     } else {
                         fancy_l[(m * NC + n, r * NC + s)] = fancy_l[(n * NC + m, s * NC + r)];
                     }
-		}
-	    }
-	}
+                }
+            }
+        }
     }
     fancy_l
     // MatrixBigr::from_diagonal_element(NC2, NC2, 2.0) * (fancy_m(q) + fancy_f(q)).map(|z| z.re)
@@ -265,7 +265,7 @@ fn lambda(q: f64) -> f64 {
 }
 
 fn main() {
-    secant_method(lambda, 1.0, 1.3, 1.31, f64::EPSILON, 100);
+    // secant_method(lambda, 1.0, 1.3, 1.31, f64::EPSILON, 100);
     // secant_method(test, 0.0, 0.0, 1.0, f64::EPSILON, 100);
-    // println!("{}", normal_m(10, 1.3, 2, 2));
+    println!("{}", normal_m(5, 1.3, 3, 3));
 }
