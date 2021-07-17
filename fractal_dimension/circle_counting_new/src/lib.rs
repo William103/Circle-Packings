@@ -15,7 +15,7 @@ pub fn fractal_dimension(
     let mut totals = vec![root.len(); n];
     let mut current = vec![(root, std::usize::MAX, false)];
     let mut next = vec![];
-    let mut nodes = 1;
+    let mut nodes: u64 = 1;
 
     let xs: Vec<f64> = (1..=n)
         // .map(|x| (x as f64 * upper_bound / (n as f64)))
