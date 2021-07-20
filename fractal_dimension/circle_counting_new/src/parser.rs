@@ -258,7 +258,7 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
 
     for pair in &orthogonal_generators {
         if pair.len() != 2 {
-            eprintln!("{}\nGot:\t{:?}", Red.paint(format!("Can only have at most two mutually orthogonal generators for now!")), pair);
+            eprintln!("{}\nGot:\t{:?}", Red.paint("Can only have at most two mutually orthogonal generators for now!".to_string()), pair);
             std::process::exit(-1);
         }
     }

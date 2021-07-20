@@ -13,7 +13,7 @@ pub fn fractal_dimension(
     orthogonal_generators: Vec<Vec<usize>>,
 ) -> Result<f64, linregress::Error> {
     let mut totals = vec![root.len(); n];
-    let mut current = vec![(root, std::usize::MAX)];
+    let mut current = vec![(root, std::usize::MAX, false)];
     let mut next = vec![];
     let mut nodes: u64 = 1;
 
@@ -25,7 +25,7 @@ pub fn fractal_dimension(
 
     loop {
         next.clear();
-        for (tuple, previous_generator) in &current {
+        for (tuple, previous_generator, tuple_too_big) in &current {
             let mut add_children = false;
             let mut children = vec![];
             for (i, generator) in generators.iter().enumerate() {
@@ -41,10 +41,7 @@ pub fn fractal_dimension(
                 }
                 if i != *previous_generator {
                     let new_tuple = generator * tuple;
-                    if new_tuple.iter().sum::<f64>() <= tuple.iter().sum() {
-                        continue;
-                    }
-                    let mut add = false;
+                    let mut too_big = true;
                     for (j, curvature) in new_tuple.iter().enumerate() {
                         let mut skip = false;
                         for vertex in &faces[i] {
@@ -58,20 +55,16 @@ pub fn fractal_dimension(
                         }
                         for (k, max) in xs.iter().enumerate() {
                             if curvature <= max {
-                                add = true;
+                                add_children = true;
+                                too_big = false;
                                 totals[k] += 1;
                             }
                         }
                     }
-                    if add {
-                        add_children = true;
-                        children.push((new_tuple, i));
-                    } else {
-                        children.push((new_tuple, i));
-                    }
+                    children.push((new_tuple, i, too_big));
                 }
             }
-            if add_children {
+            if add_children || !tuple_too_big {
                 nodes += 1;
                 for child in children {
                     next.push(child);
@@ -105,7 +98,7 @@ pub fn fractal_dimension(
         println!(
             "\nnumber of circles fewer than each of those sample points:\n{:?}",
             totals
-        );
+            );
         println!("\nTotal number of nodes:\t{}", nodes);
     }
 
