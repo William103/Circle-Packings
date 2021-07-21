@@ -1,10 +1,13 @@
 use ansi_term::Color::Yellow;
 use linregress::{FormulaRegressionBuilder, RegressionDataBuilder};
 use nalgebra::{DMatrix, DVector};
+use f128::f128;
+
+type F = f128;
 
 pub fn fractal_dimension(
-    generators: Vec<DMatrix<f64>>,
-    root: DVector<f64>,
+    generators: Vec<DMatrix<F>>,
+    root: DVector<F>,
     faces: Vec<Vec<usize>>,
     upper_bound: f64,
     n: usize,
@@ -18,7 +21,7 @@ pub fn fractal_dimension(
     let mut nodes: u64 = 1;
 
     let xs: Vec<f64> = (1..=n)
-        .map(|x| (x as f64 * upper_bound / (2.0 * n as f64) + upper_bound / 2.0))
+        .map(|x| ((x as f64) * upper_bound / ((2 * n) as f64) + upper_bound / f64::from(2.0)))
         .collect();
 
     let mut i = 0;
@@ -54,7 +57,7 @@ pub fn fractal_dimension(
                             continue;
                         }
                         for (k, max) in xs.iter().enumerate() {
-                            if curvature <= max {
+                            if curvature <= &F::from(*max) {
                                 add_children = true;
                                 too_big = false;
                                 totals[k] += 1;

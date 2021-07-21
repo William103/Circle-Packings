@@ -1,7 +1,10 @@
 use std::fs;
+use f128::f128;
 
 use nalgebra::{DMatrix, DVector};
 use ansi_term::Color::Red;
+
+type F = f128;
 
 #[derive(Debug, PartialEq)]
 enum TokenType {
@@ -163,13 +166,13 @@ fn eval(data: &mut std::iter::Peekable<TokenIterator>) -> Result<Value, String> 
     }
 }
 
-fn vector_to_rust_value(value: &Value) -> Result<Vec<f64>, String> {
-    let mut result = vec![];
+fn vector_to_rust_value(value: &Value) -> Result<Vec<F>, String> {
+    let mut result: Vec<F> = vec![];
 
     if let Value::List(data) = value {
         for datapoint in data {
             if let Value::Number(num) = datapoint {
-                result.push(*num);
+                result.push(F::from(*num));
             } else {
                 return Err(format!("Expected a number, got {:?}", datapoint));
             }
@@ -181,8 +184,8 @@ fn vector_to_rust_value(value: &Value) -> Result<Vec<f64>, String> {
     Ok(result)
 }
 
-fn matrix_to_rust_value(value: &Value) -> Result<Vec<Vec<f64>>, String> {
-    let mut result = vec![];
+fn matrix_to_rust_value(value: &Value) -> Result<Vec<Vec<F>>, String> {
+    let mut result: Vec<Vec<F>> = vec![];
 
     if let Value::List(data) = value {
         for row in data {
@@ -197,8 +200,8 @@ fn matrix_to_rust_value(value: &Value) -> Result<Vec<Vec<f64>>, String> {
     Ok(result)
 }
 
-fn matrix_to_rust_value_flat(value: &Value) -> Result<Vec<f64>, String> {
-    let mut result = vec![];
+fn matrix_to_rust_value_flat(value: &Value) -> Result<Vec<F>, String> {
+    let mut result: Vec<F> = vec![];
 
     if let Value::List(data) = value {
         for row in data {
@@ -213,8 +216,8 @@ fn matrix_to_rust_value_flat(value: &Value) -> Result<Vec<f64>, String> {
     Ok(result)
 }
 
-pub type Generator = DMatrix<f64>;
-pub type Root = DVector<f64>;
+pub type Generator = DMatrix<F>;
+pub type Root = DVector<F>;
 pub type FaceList = Vec<Vec<usize>>;
 pub type OrthogonalGenerators = Vec<Vec<usize>>;
 pub type Data = (Vec<Generator>, Root, FaceList, OrthogonalGenerators);
@@ -226,7 +229,7 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
 
     let results = eval_full(contents)?;
 
-    let mut generators = vec![];
+    let mut generators: Vec<Generator> = vec![];
     if let Value::List(gens) = &results[0] {
         for val in gens {
             let mat = matrix_to_rust_value(val)?;
@@ -244,7 +247,9 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
     let faces = matrix_to_rust_value(&results[2])?;
     let faces = faces
         .iter()
-        .map(|v| v.iter().map(|x| x.round() as usize).collect())
+        .map(|v| -> Vec<usize> {
+            v.iter().map(|x| -> usize { (*x).into() }).collect()
+         })
         .collect();
 
     let orthogonal_generators: Vec<Vec<usize>> = if results.len() < 4 {
@@ -252,7 +257,7 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
     } else {
         matrix_to_rust_value(&results[3])?
             .iter()
-            .map(|v| v.iter().map(|x| x.round() as usize).collect())
+            .map(|v| v.iter().map(|x| -> usize { (*x).into() }).collect())
             .collect()
     };
 
@@ -370,42 +375,6 @@ mod test {
                     Value::Number(1.0)
                 ])
             ])]
-        );
-    }
-
-    #[test]
-    fn vector() {
-        let test = Value::List(vec![Value::Number(1.0), Value::Number(2.0)]);
-        assert_eq!(vector_to_rust_value(&test).unwrap(), vec![1.0, 2.0]);
-    }
-
-    #[test]
-    fn matrix() {
-        let val = Value::List(vec![
-            Value::List(vec![
-                Value::Number(1.0),
-                Value::Number(0.0),
-                Value::Number(0.0),
-            ]),
-            Value::List(vec![
-                Value::Number(0.0),
-                Value::Number(1.0),
-                Value::Number(0.0),
-            ]),
-            Value::List(vec![
-                Value::Number(0.0),
-                Value::Number(0.0),
-                Value::Number(1.0),
-            ]),
-        ]);
-        let res = matrix_to_rust_value(&val).unwrap();
-        assert_eq!(
-            res,
-            vec![
-                vec![1.0, 0.0, 0.0],
-                vec![0.0, 1.0, 0.0],
-                vec![0.0, 0.0, 1.0]
-            ]
         );
     }
 }
