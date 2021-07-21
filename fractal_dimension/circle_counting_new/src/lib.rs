@@ -41,9 +41,6 @@ pub fn fractal_dimension(
                 }
                 if i != *previous_generator {
                     let new_tuple = generator * tuple;
-                    if new_tuple.iter().sum::<f64>() <= tuple.iter().sum() {
-                        continue;
-                    }
                     let mut add = false;
                     for (j, curvature) in new_tuple.iter().enumerate() {
                         let mut skip = false;
