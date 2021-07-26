@@ -214,7 +214,7 @@ fn matrix_to_rust_value_flat(value: &Value) -> Result<Vec<f64>, String> {
 }
 
 pub type Generator = DMatrix<f64>;
-pub type Root = DVector<f64>;
+pub type Root = Vec<DVector<f64>>;
 pub type FaceList = Vec<Vec<usize>>;
 pub type OrthogonalGenerators = Vec<Vec<usize>>;
 pub type Data = (Vec<Generator>, Root, FaceList, OrthogonalGenerators);
@@ -240,7 +240,7 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
         ));
     }
 
-    let root = vector_to_rust_value(&results[1])?;
+    let root = matrix_to_rust_value(&results[1])?;
     let faces = matrix_to_rust_value(&results[2])?;
     let faces = faces
         .iter()
@@ -263,7 +263,8 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
         }
     }
 
-    Ok((generators, DVector::from_column_slice(&root), faces, orthogonal_generators))
+    let new_root = root.iter().map(|circ| DVector::from_column_slice(circ)).collect();
+    Ok((generators, new_root, faces, orthogonal_generators))
 }
 
 #[cfg(test)]

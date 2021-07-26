@@ -1,13 +1,15 @@
 #![allow(dead_code)]
 
-use crate::{lib::fractal_dimension, parser::read_file};
+use crate::{fractal::fractal_dimension, parser::read_file};
 use std::process;
 use structopt::StructOpt;
 
 use ansi_term::Color::Yellow;
 
-mod lib;
-mod parser;
+pub mod fractal;
+pub mod parser;
+pub mod constants;
+pub mod search;
 
 /// Compute fractal dimension of crystallographic packings via the circle counting method
 #[derive(StructOpt)]
@@ -89,7 +91,7 @@ fn main() {
             Yellow.paint("Root Tuple"),
             opt.data_file
         );
-        println!("{}", root);
+        println!("{:?}", root);
         println!(
             "{} (parsed from file {}):",
             Yellow.paint("Faces"),
@@ -107,7 +109,6 @@ fn main() {
     let delta = fractal_dimension(
         generators,
         root,
-        faces,
         opt.max,
         opt.n,
         debug,
