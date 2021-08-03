@@ -35,7 +35,7 @@ impl<'a> Iterator for TokenIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut current: char = self.data.next()?;
-        while current.is_whitespace() {
+        while current.is_whitespace() || current == '`' || current == '\\'{
             if current == '\n' {
                 self.line += 1;
             }

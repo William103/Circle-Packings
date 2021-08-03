@@ -6,9 +6,9 @@ use structopt::StructOpt;
 
 use ansi_term::Color::Yellow;
 
+pub mod constants;
 pub mod fractal;
 pub mod parser;
-pub mod constants;
 pub mod search;
 
 /// Compute fractal dimension of crystallographic packings via the circle counting method
@@ -35,20 +35,24 @@ struct Opt {
     #[structopt(short, long)]
     time: bool,
 
-    /// Cap on the number of generations (0 means no cap)
+    /// Cap on the recursion depth (0 means no cap)
     #[structopt(short, long, default_value = "0")]
-    generations: usize,
+    depth: usize,
+
+    /// Whether the generators given are geometric or algebraic generators (defaults to algebraic)
+    #[structopt(short, long)]
+    geometric: bool,
 }
 
 fn main() {
     let opt = Opt::from_args();
     let debug = opt.debug;
     let time = debug || opt.time;
-    let generations = opt.generations;
+    let depth = opt.depth;
 
     let beginning = std::time::Instant::now();
 
-    let (generators, root, faces, orthogonal_generators) = read_file(&opt.data_file)
+    let (mut generators, root, faces, orthogonal_generators) = read_file(&opt.data_file)
         .unwrap_or_else(|err| {
             eprintln!("{}", err);
             process::exit(-1);
@@ -77,6 +81,20 @@ fn main() {
         );
     }
 
+    if !opt.geometric {
+        let c = nalgebra::DMatrix::from_columns(&root);
+        let ct = c
+            .clone()
+            .pseudo_inverse(1e-5)
+            .expect(format!("Invalid root matrix {}", c).as_str());
+        println!("{}", ct);
+
+        generators = generators
+            .iter()
+            .map(|sigma| &c * sigma.transpose() * &ct)
+            .collect();
+    }
+
     if debug {
         println!(
             "{} (parsed from file {})",
@@ -91,7 +109,9 @@ fn main() {
             Yellow.paint("Root Tuple"),
             opt.data_file
         );
-        println!("{:?}", root);
+        for circle in &root {
+            println!("{}", circle);
+        }
         println!(
             "{} (parsed from file {}):",
             Yellow.paint("Faces"),
@@ -112,7 +132,8 @@ fn main() {
         opt.max,
         opt.n,
         debug,
-        generations,
+        depth,
+        faces,
         orthogonal_generators,
     )
     .unwrap();

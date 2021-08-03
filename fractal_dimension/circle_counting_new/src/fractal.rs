@@ -11,15 +11,16 @@ pub fn fractal_dimension(
     n: usize,
     debug: bool,
     generations: usize,
+    faces: Vec<Vec<usize>>,
     _orthogonal_generators: Vec<Vec<usize>>,
 ) -> Result<f64, linregress::Error> {
     let xs: Vec<f64> = (1..=n)
         .map(|x| (x as f64 * upper_bound / (2.0 * n as f64) + upper_bound / 2.0))
         .collect();
 
-    let mut searcher = Searcher::new(&xs, &generators, generations, root.len() as u64);
-    for circle in root {
-        searcher.search(&circle, std::usize::MAX, 0);
+    let mut searcher = Searcher::new(&xs, &generators, generations, root.len() as u64, &faces);
+    for (i, circle) in root.iter().enumerate() {
+        searcher.search(&circle, i, std::usize::MAX, 0);
     }
 
     if debug {
