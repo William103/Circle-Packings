@@ -1,25 +1,3 @@
-{{{1., 0, 0, 0, 0, 0}, {0, 1., 0, 0, 0, 0}, {5.23607, 3.61803, 0, 
-   0, -1., 3.61803}, {8.47214, 4.23607, 0, 0, -1.61803, 
-   6.8541}, {5.23607, 2., 0, 0, -1., 5.23607}, {0, 0, 0, 0, 0, 
-   1.}}, {{1., 0, 0, 0, 0, 0}, {0, 1., 0, 0, 0, 0}, {0, 0, 1., 0, 0, 
-   0}, {5.23607, 3.61803, 3.61803, 0, 0, -1.}, {8.47214, 6.8541, 
-   4.23607, 0, 0, -1.61803}, {5.23607, 5.23607, 2., 0, 0, -1.}}, {{1.,
-    0, 0, 0, 0, 0}, {5.23607, 0, 3.61803, 3.61803, -1., 0}, {0, 0, 1.,
-    0, 0, 0}, {0, 0, 0, 1., 0, 0}, {5.23607, 0, 2., 5.23607, -1., 
-   0}, {8.47214, 0, 4.23607, 6.8541, -1.61803, 0}}, {{1., 0, 0, 0, 0, 
-   0}, {8.47214, 0, 0, 4.23607, 6.8541, -1.61803}, {5.23607, 0, 0, 
-   3.61803, 3.61803, -1.}, {0, 0, 0, 1., 0, 0}, {0, 0, 0, 0, 1., 
-   0}, {5.23607, 0, 0, 2., 5.23607, -1.}}, {{1., 0, 0, 0, 0, 
-   0}, {5.23607, 0, -0.618034, 0, 2.61803, 4.23607}, {8.47214, 0, -1.,
-    0, 5.23607, 5.23607}, {5.23607, 0, -0.618034, 0, 4.23607, 
-   2.61803}, {0, 0, 0, 0, 1., 0}, {0, 0, 0, 0, 0, 
-   1.}}, {{-1., -0.472136, 0.763932, 0, 0, 0.763932}, {0, 1., 0, 0, 0,
-    0}, {0, 0, 1., 0, 0, 0}, {0, -1.61803, 1.61803, 0, 0, 
-   1.}, {0, -1.61803, 1., 0, 0, 1.61803}, {0, 0, 0, 0, 0, 1.}}}
-
-{{12.4721, 10.4721, -6.47214, 9.47214}, {44.3607, 44.3607, -27.4164, 
-  34.8885}, {10.4721, 12.4721, -6.47214, 
-  9.47214}, {-5.23607, -5.23607, 3.23607, -4.23607}, {18.9443, 
-  15.7082, -11.7082, 12.7082}, {49.5967, 46.3607, -30.6525, 36.8885}}
-
-{{0, 1, 5}, {0, 2, 1}, {0, 3, 2}, {0, 4, 3}, {0, 5, 4}, {1, 2, 3, 4, 5}}
+{Table[If[j == k, 1, 0], {j, 1}, {k, DeleteDuplicates[Join[allVertices, {1}]]}] . Transpose[RowReduce[Transpose[Transpose[Join[{{1}}[[RandomSample[3, PlanarGraph[AdjacencyGraph[Automatic, pyramidG[5.], VertexLabels -> "Name"]], 1]]], {{1}}]]] . pyramidG[5.] . Transpose[Join[{{1}}[[RandomSample[3, PlanarGraph[AdjacencyGraph[Automatic, pyramidG[5.], VertexLabels -> "Name"]], 1]]], {{1}}]]][[1 ;; MatrixRank[Transpose[Transpose[Join[{{1}}[[RandomSample[3, PlanarGraph[AdjacencyGraph[Automatic, pyramidG[5.], VertexLabels -> "Name"]], 1]]], {{1}}]]] . pyramidG[5.] . Transpose[Join[{{1}}[[RandomSample[3, PlanarGraph[AdjacencyGraph[Automatic, pyramidG[5.], VertexLabels -> "Name"]], 1]]], {{1}}]]]]]] . {{1, 0, 0}, {0, 1, 0}, {0 /. Table[Subscript[b, i] -> If[i == curr, 1, 0], {i, RandomSample[3, PlanarGraph[AdjacencyGraph[Automatic, pyramidG[5.], VertexLabels -> "Name"]], 1]}], {curr, RandomSample[3, PlanarGraph[AdjacencyGraph[Automatic, pyramidG[5.], VertexLabels -> "Name"]], 1]}, 0}} . Transpose[Table[If[j == k, 1, 0], {j, 1}, {k, allVertices}]]}
+pyramidTuple[5.]
+-1 + FindFace[PlanarGraph[AdjacencyGraph[Automatic, pyramidG[5], VertexLabels -> "Name"]]]

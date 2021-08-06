@@ -87,6 +87,7 @@ fn main() {
             .clone()
             .pseudo_inverse(1e-5)
             .expect(format!("Invalid root matrix {}", c).as_str());
+        println!("{}", c);
         println!("{}", ct);
 
         generators = generators
