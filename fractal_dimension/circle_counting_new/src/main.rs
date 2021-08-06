@@ -10,6 +10,7 @@ pub mod constants;
 pub mod fractal;
 pub mod parser;
 pub mod search;
+pub mod gram_matrix;
 
 /// Compute fractal dimension of crystallographic packings via the circle counting method
 #[derive(StructOpt)]
