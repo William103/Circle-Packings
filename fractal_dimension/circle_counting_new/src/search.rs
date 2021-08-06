@@ -49,8 +49,7 @@ impl<'a> Searcher<'a> {
                 let new_circle = generator * circle;
                 if new_circle[1] - circle[1] <= self.tolerance {
                     continue;
-                }
-                {
+                } else {
                     let mut seen = false;
                     for (j, max) in self.maxes.iter().enumerate() {
                         if seen || new_circle[1] <= *max {
