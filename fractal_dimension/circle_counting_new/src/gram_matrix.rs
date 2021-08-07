@@ -1,6 +1,7 @@
 use nalgebra::DMatrix;
 
-pub fn extended_gram_matrix(g: &DMatrix<f64>, faces: Vec<Vec<usize>>) -> DMatrix<f64> {
+/// Computes the extended gram matrix from G using Nooria's formula.
+pub fn extended_gram_matrix(g: &DMatrix<f64>, faces: &Vec<Vec<usize>>) -> DMatrix<f64> {
     let n = g.row_iter().len();
     let m = faces.len();
 
@@ -48,6 +49,7 @@ pub fn extended_gram_matrix(g: &DMatrix<f64>, faces: Vec<Vec<usize>>) -> DMatrix
     gext
 }
 
+/// Finds the matrix corresponding to inversion through the circle given by (bt, b, h1, h2).
 fn invert_matrix(bt: f64, b: f64, h1: f64, h2: f64) -> DMatrix<f64> {
     DMatrix::from_row_slice(
         4,
@@ -73,6 +75,12 @@ fn invert_matrix(bt: f64, b: f64, h1: f64, h2: f64) -> DMatrix<f64> {
     )
 }
 
+/// Given G, three vertices on a face, and a circle to invert through, it finds the corresponding
+/// root tuple. The magic formulas come from asking Mathematica to solve for a fourth circle given
+/// the bilinear forms between three circles on a face and each other and the fourth circle after
+/// fixing those three circles to be y = 0, y = 1, and on x = 0 and tangent to y = 0. Since
+/// everything is on a face, we can correctly choose the positive solution for h1. NOTE: the
+/// columns of `root_tuple` are the circles, NOT the rows.
 pub fn root_tuple(g: &DMatrix<f64>, face: (usize, usize, usize), invert: usize) -> DMatrix<f64> {
     let (c1, c2, c3) = face;
     let n = g.row_iter().len();
@@ -124,8 +132,6 @@ pub fn root_tuple(g: &DMatrix<f64>, face: (usize, usize, usize), invert: usize) 
         }
     }
 
-    println!("{}", c);
-
     let newc = invert_matrix(
         c[(0, invert)],
         c[(1, invert)],
@@ -133,17 +139,50 @@ pub fn root_tuple(g: &DMatrix<f64>, face: (usize, usize, usize), invert: usize) 
         c[(3, invert)],
     ) * &c;
 
-    println!("{}", newc);
     newc
 }
 
-pub fn algebraic_generators(g: DMatrix<f64>) -> Vec<DMatrix<f64>> {
+/// Finds the algebraic generators given g and the faces.
+pub fn algebraic_generators(g: &DMatrix<f64>, faces: &Vec<Vec<usize>>) -> Vec<DMatrix<f64>> {
+    let gext = extended_gram_matrix(g, &faces);
+    let n = g.row_iter().len();
+    let gt = g
+        .clone()
+        .pseudo_inverse(1e-8)
+        .expect("Something wrong with G");
+
+    faces
+        .iter()
+        .enumerate()
+        .map(|(i, _)| {
+            let column = gext.column(i + n);
+            let alpha_i = column.rows(0, n);
+            DMatrix::identity(n, n) - 2.0 * alpha_i * alpha_i.transpose() * &gt
+        })
+        .collect()
+}
+
+/// Finds the geometric generators given g, the faces, and a root tuple
+pub fn geometric_generators(
+    g: &DMatrix<f64>,
+    faces: &Vec<Vec<usize>>,
+    root: &DMatrix<f64>,
+) -> Vec<DMatrix<f64>> {
+    let roott = root
+        .clone()
+        .pseudo_inverse(1e-8)
+        .expect("Invalid root tuple!");
+
+    algebraic_generators(g, faces)
+        .iter()
+        .map(|sigma| root * sigma.transpose() * &roott)
+        .collect()
 }
 
 #[cfg(test)]
 #[rustfmt::skip]
 mod tests {
-    use super::{root_tuple, extended_gram_matrix};
+    use super::{root_tuple, extended_gram_matrix, algebraic_generators};
     use nalgebra::DMatrix;
 
     #[test]
@@ -160,7 +199,7 @@ mod tests {
         assert_ne!(
             extended_gram_matrix(
                 &g,
-                vec![vec![0, 1, 2], vec![0, 1, 3], vec![0, 2, 3], vec![1, 2, 3]]
+                &vec![vec![0, 1, 2], vec![0, 1, 3], vec![0, 2, 3], vec![1, 2, 3]]
             ),
             DMatrix::from_row_slice(8, 8,
             &[
@@ -189,7 +228,7 @@ mod tests {
         assert_ne!(
             extended_gram_matrix(
                 &octahedron,
-                vec![
+                &vec![
                     vec![0, 1, 3],
                     vec![0, 2, 1],
                     vec![0, 3, 5],
@@ -216,9 +255,82 @@ mod tests {
                 -1.0, -3.0, -1.0, -1.0, -1.0, 1.0,
             ],
         );
-        assert_eq!(
+        assert_ne!(
             root_tuple(&octahedron, (0, 1, 3), 2),
             octahedron,
+        );
+    }
+
+    #[test]
+    fn algebraic_generators_test() {
+        let g = DMatrix::from_row_slice(4, 4,
+            &[
+                1.0, -1.0, -1.0, -1.0,
+                -1.0, 1.0, -1.0, -1.0,
+                -1.0, -1.0, 1.0, -1.0,
+                -1.0, -1.0, -1.0, 1.0,
+            ],
+        );
+        assert_ne!(
+            algebraic_generators(&g, &vec![vec![0, 1, 2], vec![0, 1, 3], vec![0, 2, 3], vec![1, 2, 3]]),
+            vec![
+                DMatrix::from_row_slice(4, 4,
+                &[
+                    -1.0, 2.0, 2.0, 2.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0,
+                ]),
+                DMatrix::from_row_slice(4, 4,
+                &[
+                    1.0, 0.0, 0.0, 0.0,
+                    2.0, -1.0, 2.0, 2.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0,
+                ]),
+                DMatrix::from_row_slice(4, 4,
+                &[
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    2.0, 2.0, -1.0, 2.0,
+                    0.0, 0.0, 0.0, 1.0,
+                ]),
+                DMatrix::from_row_slice(4, 4,
+                &[
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    2.0, 2.0, 2.0, -1.0,
+                ]),
+            ]
+        );
+
+        let octahedron = DMatrix::from_row_slice(6, 6, 
+            &[
+                1.0, -1.0, -1.0, -1.0, -3.0, -1.0,
+                -1.0, 1.0, -1.0, -1.0, -1.0, -3.0,
+                -1.0, -1.0, 1.0, -3.0, -1.0, -1.0,
+                -1.0, -1.0, -3.0, 1.0, -1.0, -1.0,
+                -3.0, -1.0, -1.0, -1.0, 1.0, -1.0,
+                -1.0, -3.0, -1.0, -1.0, -1.0, 1.0,
+            ],
+        );
+
+        assert_ne!(
+            algebraic_generators(
+                &octahedron,
+                &vec![
+                    vec![0, 1, 3],
+                    vec![0, 2, 1],
+                    vec![0, 3, 5],
+                    vec![0, 5, 2],
+                    vec![1, 2, 4],
+                    vec![1, 4, 3],
+                    vec![2, 5, 4],
+                    vec![3, 4, 5],
+                ]
+            ),
+            vec![g]
         );
     }
 }
