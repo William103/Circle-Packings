@@ -1,6 +1,11 @@
 #![allow(dead_code)]
 
-use crate::{fractal::fractal_dimension, parser::read_file};
+use crate::{
+    fractal::fractal_dimension,
+    gram_matrix::{algebraic_generators, geometric_generators, root_tuple},
+    parser::read_file,
+};
+use nalgebra::DVector;
 use std::process;
 use structopt::StructOpt;
 
@@ -8,9 +13,9 @@ use ansi_term::Color::Yellow;
 
 pub mod constants;
 pub mod fractal;
+pub mod gram_matrix;
 pub mod parser;
 pub mod search;
-pub mod gram_matrix;
 
 /// Compute fractal dimension of crystallographic packings via the circle counting method
 #[derive(StructOpt)]
@@ -53,11 +58,10 @@ fn main() {
 
     let beginning = std::time::Instant::now();
 
-    let (mut generators, root, faces, orthogonal_generators) = read_file(&opt.data_file)
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            process::exit(-1);
-        });
+    let (gram_matrix, faces) = read_file(&opt.data_file).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        process::exit(-1);
+    });
 
     let after_parsing = std::time::Instant::now();
     if time {
@@ -82,51 +86,108 @@ fn main() {
         );
     }
 
-    if !opt.geometric {
-        let c = nalgebra::DMatrix::from_columns(&root);
-        let ct = c
-            .clone()
-            .pseudo_inverse(1e-5)
-            .expect(format!("Invalid root matrix {}", c).as_str());
-        println!("{}", c);
-        println!("{}", ct);
-
-        generators = generators
-            .iter()
-            .map(|sigma| &c * sigma.transpose() * &ct)
-            .collect();
-    }
-
     if debug {
         println!(
-            "{} (parsed from file {})",
-            Yellow.paint("Generators"),
-            opt.data_file
-        );
-        for generator in &generators {
-            println!("{}", generator);
-        }
-        println!(
             "{} (parsed from file {}):",
-            Yellow.paint("Root Tuple"),
+            Yellow.paint("Gram Matrix"),
             opt.data_file
         );
-        for circle in &root {
-            println!("{}", circle);
-        }
+        println!("{}\n", gram_matrix);
         println!(
             "{} (parsed from file {}):",
             Yellow.paint("Faces"),
             opt.data_file
         );
         println!("{:?}\n", faces);
-        println!(
+        /* println!(
             "{} (parsed from file {}):",
             Yellow.paint("Orthogonal Generators"),
             opt.data_file
         );
-        println!("{:?}\n", orthogonal_generators);
+        println!("{:?}\n", orthogonal_generators); */
     }
+
+    // finding a suitable root tuple
+    let mut root = None;
+    for face in faces.iter().skip(1) {
+        for vertex in face {
+            let mut valid = true;
+            for vertex2 in &faces[0] {
+                if *vertex == *vertex2 {
+                    valid = false;
+                    break;
+                }
+            }
+            if valid {
+                let temp = root_tuple(
+                    &gram_matrix,
+                    (faces[0][0], faces[0][1], faces[0][2]),
+                    *vertex,
+                );
+
+                let mut valid = true;
+
+                let generators = geometric_generators(&gram_matrix, &faces, &temp);
+                for gen in generators {
+                    if gen[(1, 0)].abs() <= 1e-8 {
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if valid {
+                    root = Some(temp);
+                    println!("{}\t{:?}", vertex, faces[0]);
+                    break;
+                }
+            }
+        }
+        if root.is_some() {
+            break;
+        }
+    }
+
+    if root.is_none() {
+        panic!("Invalid face scheme!");
+    }
+
+    let root = root.unwrap();
+
+    let generators = geometric_generators(&gram_matrix, &faces, &root);
+
+    if debug {
+        println!(
+            "{} (computed using gram_matrix):",
+            Yellow.paint("Root Matrix")
+        );
+        println!("{}", root);
+
+        println!(
+            "{} (computed using gram_matrix and root):",
+            Yellow.paint("Geometric generators")
+        );
+        for generator in &generators {
+            println!("{}", generator);
+        }
+
+        let generators = algebraic_generators(&gram_matrix, &faces);
+        println!(
+            "{} (computed using gram_matrix and root):",
+            Yellow.paint("Algebraic generators")
+        );
+        for generator in &generators {
+            println!("{}", generator);
+        }
+    }
+
+    let mut temp = vec![];
+    for circle in root.column_iter() {
+        temp.push(DVector::from_iterator(
+            4,
+            circle.iter().map(|val| val.clone()),
+        ));
+    }
+    let root = temp;
 
     let delta = fractal_dimension(
         generators,
@@ -136,7 +197,7 @@ fn main() {
         debug,
         depth,
         faces,
-        orthogonal_generators,
+        vec![],
     )
     .unwrap();
     let after_computing = std::time::Instant::now();

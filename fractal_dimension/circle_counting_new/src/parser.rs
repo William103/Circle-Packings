@@ -1,6 +1,6 @@
 use std::fs;
 
-use nalgebra::{DMatrix, DVector};
+use nalgebra::DMatrix;
 use ansi_term::Color::Red;
 
 #[derive(Debug, PartialEq)]
@@ -213,11 +213,9 @@ fn matrix_to_rust_value_flat(value: &Value) -> Result<Vec<f64>, String> {
     Ok(result)
 }
 
-pub type Generator = DMatrix<f64>;
-pub type Root = Vec<DVector<f64>>;
+pub type Matrix = DMatrix<f64>;
 pub type FaceList = Vec<Vec<usize>>;
-pub type OrthogonalGenerators = Vec<Vec<usize>>;
-pub type Data = (Vec<Generator>, Root, FaceList, OrthogonalGenerators);
+pub type Data = (Matrix, FaceList);
 pub fn read_file(filename: &str) -> Result<Data, String> {
     let contents = match fs::read_to_string(filename) {
         Ok(contents) => contents,
@@ -226,28 +224,16 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
 
     let results = eval_full(contents)?;
 
-    let mut generators = vec![];
-    if let Value::List(gens) = &results[0] {
-        for val in gens {
-            let mat = matrix_to_rust_value(val)?;
-            let mat2 = matrix_to_rust_value_flat(val)?;
-            generators.push(DMatrix::from_row_slice(mat.len(), mat[0].len(), &mat2));
-        }
-    } else {
-        return Err(format!(
-            "Expected first value in file to be the generators; got {:?}",
-            results[0]
-        ));
-    }
+    let n = matrix_to_rust_value(&results[0])?.len();
+    let gram_matrix = DMatrix::from_row_slice(n, n, &matrix_to_rust_value_flat(&results[0])?);
 
-    let root = matrix_to_rust_value(&results[1])?;
-    let faces = matrix_to_rust_value(&results[2])?;
+    let faces = matrix_to_rust_value(&results[1])?;
     let faces = faces
         .iter()
         .map(|v| v.iter().map(|x| x.round() as usize).collect())
         .collect();
 
-    let orthogonal_generators: Vec<Vec<usize>> = if results.len() < 4 {
+    let orthogonal_generators: Vec<Vec<usize>> = if results.len() < 3 {
         vec![]
     } else {
         matrix_to_rust_value(&results[3])?
@@ -263,8 +249,7 @@ pub fn read_file(filename: &str) -> Result<Data, String> {
         }
     }
 
-    let new_root = root.iter().map(|circ| DVector::from_column_slice(circ)).collect();
-    Ok((generators, new_root, faces, orthogonal_generators))
+    Ok((gram_matrix, faces))
 }
 
 #[cfg(test)]
