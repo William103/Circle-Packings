@@ -129,7 +129,7 @@ fn main() {
 
                 let generators = geometric_generators(&gram_matrix, &faces, &temp);
                 for gen in generators {
-                    if gen[(1, 0)].abs() <= 1e-8 {
+                    if gen[(1, 0)].abs() <= 1e-8 || !gen[(1, 0)].is_finite() {
                         valid = false;
                         break;
                     }
