@@ -1,397 +1,141 @@
-use std::fs;
+#![allow(dead_code)]
+use std::fs::read_to_string;
 
 use nalgebra::DMatrix;
-use ansi_term::Color::Red;
+use nom::{
+    bytes::complete::is_a,
+    character::complete::{char, digit0},
+    combinator::map,
+    error::{ErrorKind, ParseError},
+    multi::separated_list0,
+    number::complete::double,
+    sequence::delimited,
+    IResult,
+};
 
-#[derive(Debug, PartialEq)]
-enum TokenType {
-    OpenBracket,
-    CloseBracket,
-    Number(f64),
-    Error(String),
-    Comma,
+fn whitespace<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
+    is_a(" \t\r\n`\\,")(i)
 }
 
-#[derive(Debug, PartialEq)]
-struct Token {
-    ttype: TokenType,
-    line: usize,
-}
-
-impl Token {
-    #[allow(dead_code)]
-    fn new(ttype: TokenType, line: usize) -> Token {
-        Token { ttype, line }
-    }
-}
-
-struct TokenIterator<'a> {
-    data: std::iter::Peekable<std::str::Chars<'a>>,
-    line: usize,
-}
-
-impl<'a> Iterator for TokenIterator<'a> {
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut current: char = self.data.next()?;
-        while current.is_whitespace() || current == '`' || current == '\\'{
-            if current == '\n' {
-                self.line += 1;
-            }
-            current = self.data.next()?;
-        }
-        use TokenType::*;
-        match current {
-            '{' => {
-                return Some(Token {
-                    ttype: OpenBracket,
-                    line: self.line,
-                })
-            }
-            '}' => {
-                return Some(Token {
-                    ttype: CloseBracket,
-                    line: self.line,
-                })
-            }
-            ',' => {
-                return Some(Token {
-                    ttype: Comma,
-                    line: self.line,
-                })
-            }
-            _ => (),
-        }
-        if current.is_numeric() || current == '-' {
-            let mut s: String = "".into();
-            loop {
-                s.push(current);
-                if let Some(c) = self.data.peek() {
-                    current = *c;
-                } else {
-                    break;
-                }
-                if !current.is_numeric() && current != '.' {
-                    break;
-                }
-                let _ = self.data.next();
-            }
-
-            Some(Token {
-                ttype: Number(s.parse().ok()?),
-                line: self.line,
-            })
+fn int<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, usize, E> {
+    map(digit0, |s: &str| {
+        if let Ok(val) = s.parse::<usize>() {
+            val
         } else {
-            Some(Token {
-                ttype: Error(format!("Invalid token {} on line {}", current, self.line)),
-                line: self.line,
-            })
+            unreachable!()
+        }
+    })(i)
+}
+
+fn list<'a, F: 'a, O, E: ParseError<&'a str>>(
+    element: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
+where
+    F: FnMut(&'a str) -> IResult<&'a str, O, E>,
+{
+    delimited(char('{'), separated_list0(whitespace, element), char('}'))
+}
+
+fn matrix<'a, E: 'a + ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, DMatrix<f64>, E> {
+    let (tail, output) = list(list(double))(i)?;
+    let n = output.len();
+    let m = output[0].len();
+    for row in &output {
+        if row.len() != m {
+            return Err(nom::Err::Failure(E::from_error_kind(i, ErrorKind::Fail)));
         }
     }
+    Ok((tail, DMatrix::from_row_slice(n, m, &output.concat())))
 }
 
-fn lex(data: &str) -> TokenIterator {
-    TokenIterator {
-        data: data.chars().peekable(),
-        line: 1,
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum Value {
-    List(Vec<Value>),
-    Number(f64),
-}
-
-fn eval_full(data: String) -> Result<Vec<Value>, String> {
-    let mut data = lex(data.as_str()).peekable();
-    let mut values = vec![];
-    while data.peek().is_some() {
-        values.push(eval(&mut data)?);
-    }
-    Ok(values)
-}
-
-fn eval(data: &mut std::iter::Peekable<TokenIterator>) -> Result<Value, String> {
-    let token = data
-        .next()
-        .unwrap_or_else(|| Token::new(TokenType::Error("Unable to parse!".to_string()), 0));
-    match token.ttype {
-        TokenType::OpenBracket => {
-            let mut list = vec![];
-            while let Some(token) = data.peek() {
-                match &token.ttype {
-                    TokenType::CloseBracket => {
-                        data.next();
-                        break;
-                    }
-                    TokenType::Comma => {
-                        return Err(format!("Unexpected ',' on line {}", token.line));
-                    }
-                    TokenType::Error(e) => return Err(e.into()),
-                    _ => list.push(eval(data)?),
-                };
-                match data.peek() {
-                    Some(Token {
-                        ttype: TokenType::Comma,
-                        ..
-                    }) => {
-                        data.next();
-                    }
-                    Some(Token {
-                        ttype: TokenType::CloseBracket,
-                        ..
-                    }) => (),
-                    Some(Token { ttype, line }) => {
-                        return Err(format!(
-                            "Expected ',' or '}}' near line {}; got {:?}",
-                            line, ttype
-                        ))
-                    }
-                    None => {
-                        return Err("Unexpected end of file".into());
-                    }
-                }
-            }
-            Ok(Value::List(list))
-        }
-        TokenType::CloseBracket => Err(format!("Unexpected '}}' on line {}", token.line)),
-        TokenType::Number(num) => Ok(Value::Number(num)),
-        TokenType::Error(err) => Err(err),
-        TokenType::Comma => Err(format!("Unexpected ',' on line {}", token.line)),
-    }
-}
-
-fn vector_to_rust_value(value: &Value) -> Result<Vec<f64>, String> {
-    let mut result = vec![];
-
-    if let Value::List(data) = value {
-        for datapoint in data {
-            if let Value::Number(num) = datapoint {
-                result.push(*num);
-            } else {
-                return Err(format!("Expected a number, got {:?}", datapoint));
-            }
-        }
-    } else {
-        return Err(format!("Expected a list, got {:?}", value));
-    }
-
-    Ok(result)
-}
-
-fn matrix_to_rust_value(value: &Value) -> Result<Vec<Vec<f64>>, String> {
-    let mut result = vec![];
-
-    if let Value::List(data) = value {
-        for row in data {
-            if let Value::List(_) = row {
-                result.push(vector_to_rust_value(row)?);
-            }
-        }
-    } else {
-        return Err(format!("Expected a list, got {:?}", value));
-    }
-
-    Ok(result)
-}
-
-fn matrix_to_rust_value_flat(value: &Value) -> Result<Vec<f64>, String> {
-    let mut result = vec![];
-
-    if let Value::List(data) = value {
-        for row in data {
-            if let Value::List(_) = row {
-                result.append(&mut vector_to_rust_value(row)?);
-            }
-        }
-    } else {
-        return Err(format!("Expected a list, got {:?}", value));
-    }
-
-    Ok(result)
-}
-
-pub type Matrix = DMatrix<f64>;
-pub type FaceList = Vec<Vec<usize>>;
-pub type Data = (Matrix, FaceList);
-pub fn read_file(filename: &str) -> Result<Data, String> {
-    let contents = match fs::read_to_string(filename) {
-        Ok(contents) => contents,
-        _ => return Err(format!("Something went wrong with reading {}", filename)),
-    };
-
-    let results = eval_full(contents)?;
-
-    let n = matrix_to_rust_value(&results[0])?.len();
-    let gram_matrix = DMatrix::from_row_slice(n, n, &matrix_to_rust_value_flat(&results[0])?);
-
-    let faces = matrix_to_rust_value(&results[1])?;
-    let faces = faces
-        .iter()
-        .map(|v| v.iter().map(|x| x.round() as usize).collect())
-        .collect();
-
-    let orthogonal_generators: Vec<Vec<usize>> = if results.len() < 3 {
-        vec![]
-    } else {
-        matrix_to_rust_value(&results[3])?
-            .iter()
-            .map(|v| v.iter().map(|x| x.round() as usize).collect())
-            .collect()
-    };
-
-    for pair in &orthogonal_generators {
-        if pair.len() != 2 {
-            eprintln!("{}\nGot:\t{:?}", Red.paint("Can only have at most two mutually orthogonal generators for now!".to_string()), pair);
-            std::process::exit(-1);
-        }
-    }
-
-    Ok((gram_matrix, faces))
+pub fn read_file(filename: &str) -> (DMatrix<f64>, Vec<Vec<usize>>) {
+    let contents = read_to_string(filename)
+        .unwrap_or_else(|e| panic!("Something went wrong reading {}: {}", filename, e));
+    let (tail, gram_matrix) =
+        matrix::<(&str, ErrorKind)>(contents.as_str()).expect("ERROR PARSING");
+    let (tail, _) = whitespace::<(&str, ErrorKind)>(tail).expect("ERROR PARSING");
+    let (_, faces) = list(list(int::<(&str, ErrorKind)>))(tail).expect("ERROR PARSING");
+    (gram_matrix, faces)
 }
 
 #[cfg(test)]
-mod test {
-    use super::*;
-    use TokenType::*;
+mod tests {
+    use nalgebra::DMatrix;
+    use nom::error::{Error, ErrorKind};
 
-    fn tok(ttype: TokenType, line: usize) -> Option<Token> {
-        Some(Token::new(ttype, line))
-    }
+    use crate::parser::{double, matrix, whitespace};
 
-    #[test]
-    fn parens() {
-        let mut lex = lex("{}");
-        assert_eq!(lex.next(), tok(OpenBracket, 1));
-        assert_eq!(lex.next(), tok(CloseBracket, 1));
-        assert_eq!(lex.next(), None);
-    }
+    use super::{int, list};
 
     #[test]
-    fn nums() {
-        let mut lex = lex("1.12341\n3.1415926535");
-        assert_eq!(lex.next(), tok(Number(1.12341), 1));
-        assert_eq!(lex.next(), tok(Number(3.1415926535), 2));
-        assert_eq!(lex.next(), None);
-    }
-
-    #[test]
-    fn list() {
-        let mut lex = lex("{1, 2, 3, 4}");
-        assert_eq!(lex.next(), tok(OpenBracket, 1));
-        assert_eq!(lex.next(), tok(Number(1.), 1));
-        assert_eq!(lex.next(), tok(Comma, 1));
-        assert_eq!(lex.next(), tok(Number(2.), 1));
-        assert_eq!(lex.next(), tok(Comma, 1));
-        assert_eq!(lex.next(), tok(Number(3.), 1));
-        assert_eq!(lex.next(), tok(Comma, 1));
-        assert_eq!(lex.next(), tok(Number(4.), 1));
-        assert_eq!(lex.next(), tok(CloseBracket, 1));
-    }
-
-    #[test]
-    fn nums_eval() {
-        let res = eval_full("1.23".into()).unwrap();
-        assert_eq!(res, vec![Value::Number(1.23)]);
-    }
-
-    #[test]
-    fn empty_list_eval() {
-        let res = eval_full("{}".into()).unwrap();
-        assert_eq!(res, vec![Value::List(vec![])]);
-    }
-
-    #[test]
-    fn simple_list_eval() {
-        let res = eval_full("{1.1}".into()).unwrap();
-        assert_eq!(res, vec![Value::List(vec![Value::Number(1.1)])]);
-    }
-
-    #[test]
-    fn list_eval() {
-        let res = eval_full("{\n1.23\n,\n2.3\n,\n1.5\n}".into()).unwrap();
+    fn test_whitespace() {
+        let input = "   \n`\\  asdf";
         assert_eq!(
-            res,
-            vec![Value::List(vec![
-                Value::Number(1.23),
-                Value::Number(2.3),
-                Value::Number(1.5),
-            ])]
+            whitespace::<(&str, ErrorKind)>(input).unwrap(),
+            ("asdf", "   \n`\\  ")
         );
     }
 
     #[test]
-    fn multiple_lines_eval() {
-        let res = eval_full("1.0 \n {1.0, 2.0}\n".into()).unwrap();
+    fn test_number() {
+        let input = "-123.456 asdf";
         assert_eq!(
-            res,
-            vec![
-                Value::Number(1.0),
-                Value::List(vec![Value::Number(1.0), Value::Number(2.0)])
-            ]
+            double::<&str, Error<&str>>(input).unwrap(),
+            (" asdf", -123.456)
+        );
+
+        let input = "-3 asdf";
+        assert_eq!(double::<&str, Error<&str>>(input).unwrap(), (" asdf", -3.0));
+    }
+
+    #[test]
+    fn test_list() {
+        let mut int_list = list(int::<Error<&str>>);
+        let mut int_list_list = list(list(int::<Error<&str>>));
+        assert_eq!(
+            int_list("{3, 2, 1, 42} asdf").unwrap(),
+            (" asdf", vec![3, 2, 1, 42])
+        );
+        assert_eq!(
+            int_list_list("{{3, 2, 1, 42}, {1, 2}} asdf").unwrap(),
+            (" asdf", vec![vec![3, 2, 1, 42], vec![1, 2]])
         );
     }
 
     #[test]
-    fn nested_list_eval() {
-        let res = eval_full("{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}".into()).unwrap();
+    fn test_matrix() {
+        let input = "{{1, 0}, {0, 1}} asdf";
         assert_eq!(
-            res,
-            vec![Value::List(vec![
-                Value::List(vec![
-                    Value::Number(1.0),
-                    Value::Number(0.0),
-                    Value::Number(0.0)
-                ]),
-                Value::List(vec![
-                    Value::Number(0.0),
-                    Value::Number(1.0),
-                    Value::Number(0.0)
-                ]),
-                Value::List(vec![
-                    Value::Number(0.0),
-                    Value::Number(0.0),
-                    Value::Number(1.0)
-                ])
-            ])]
+            matrix::<Error<&str>>(input).unwrap(),
+            (
+                " asdf",
+                DMatrix::from_row_slice(2, 2, &[1.0, 0.0, 0.0, 1.0])
+            )
         );
-    }
-
-    #[test]
-    fn vector() {
-        let test = Value::List(vec![Value::Number(1.0), Value::Number(2.0)]);
-        assert_eq!(vector_to_rust_value(&test).unwrap(), vec![1.0, 2.0]);
-    }
-
-    #[test]
-    fn matrix() {
-        let val = Value::List(vec![
-            Value::List(vec![
-                Value::Number(1.0),
-                Value::Number(0.0),
-                Value::Number(0.0),
-            ]),
-            Value::List(vec![
-                Value::Number(0.0),
-                Value::Number(1.0),
-                Value::Number(0.0),
-            ]),
-            Value::List(vec![
-                Value::Number(0.0),
-                Value::Number(0.0),
-                Value::Number(1.0),
-            ]),
-        ]);
-        let res = matrix_to_rust_value(&val).unwrap();
+        let input = "{{1, -1, -3, -1, -1, -3, -5, -3}, {-1,
+    1, -1, -3, -3, -1, -3, -5}, {-3, -1,
+    1, -1, -5, -3, -1, -3}, {-1, -3, -1,
+    1, -3, -5, -3, -1}, {-1, -3, -5, -3,
+    1, -1, -3, -1}, {-3, -1, -3, -5, -1,
+    1, -1, -3}, {-5, -3, -1, -3, -3, -1,
+    1, -1}, {-3, -5, -3, -1, -1, -3, -1, 1}}";
         assert_eq!(
-            res,
-            vec![
-                vec![1.0, 0.0, 0.0],
-                vec![0.0, 1.0, 0.0],
-                vec![0.0, 0.0, 1.0]
-            ]
+            matrix::<Error<&str>>(input).unwrap(),
+            (
+                "",
+                DMatrix::from_row_slice(
+                    8,
+                    8,
+                    &[
+                        1.0, -1.0, -3.0, -1.0, -1.0, -3.0, -5.0, -3.0, -1.0, 1.0, -1.0, -3.0, -3.0,
+                        -1.0, -3.0, -5.0, -3.0, -1.0, 1.0, -1.0, -5.0, -3.0, -1.0, -3.0, -1.0,
+                        -3.0, -1.0, 1.0, -3.0, -5.0, -3.0, -1.0, -1.0, -3.0, -5.0, -3.0, 1.0, -1.0,
+                        -3.0, -1.0, -3.0, -1.0, -3.0, -5.0, -1.0, 1.0, -1.0, -3.0, -5.0, -3.0,
+                        -1.0, -3.0, -3.0, -1.0, 1.0, -1.0, -3.0, -5.0, -3.0, -1.0, -1.0, -3.0,
+                        -1.0, 1.0
+                    ]
+                )
+            )
         );
     }
 }
