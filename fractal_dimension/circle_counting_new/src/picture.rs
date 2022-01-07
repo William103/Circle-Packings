@@ -48,7 +48,7 @@ impl PictureTask {
     fn new(max_curvature: f64, width: usize, height: usize) -> PictureTask {
         PictureTask {
             svg: format!(
-                "<?xml version=\"1.0\" standalone=\"no\"?>\n<svg width=\"{}\" height=\"{}\">\n",
+                "<?xml version=\"1.0\" standalone=\"no\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{}\" height=\"{}\">\n",
                 width, height
             ),
             max_curvature,

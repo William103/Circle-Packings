@@ -13,10 +13,12 @@ use nom::{
     IResult,
 };
 
+/// Combinator to skip "whitespace"
 fn whitespace<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, &'a str, E> {
     is_a(" \t\r\n`\\,")(i)
 }
 
+/// Combinator to parse a positive integer and return the integer it represents as a value
 fn int<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, usize, E> {
     map(digit0, |s: &str| {
         if let Ok(val) = s.parse::<usize>() {
@@ -27,6 +29,8 @@ fn int<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, usize, E> {
     })(i)
 }
 
+/// Function that, given a combinator representing the kind of element, returns a combinator that
+/// parses a list delimited by braces
 fn list<'a, F: 'a, O, E: ParseError<&'a str>>(
     element: F,
 ) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
@@ -36,6 +40,7 @@ where
     delimited(char('{'), separated_list0(whitespace, element), char('}'))
 }
 
+/// Combinator that parses a matrix: i.e. a nested list of floats, and returns a `DMatrix`
 fn matrix<'a, E: 'a + ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, DMatrix<f64>, E> {
     let (tail, output) = list(list(double))(i)?;
     let n = output.len();
@@ -48,6 +53,8 @@ fn matrix<'a, E: 'a + ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, DMatr
     Ok((tail, DMatrix::from_row_slice(n, m, &output.concat())))
 }
 
+/// Reads the file `filename`, which should first have the gram matrix, and then the face scheme,
+/// parses it, and returns the gram matrix and face scheme
 pub fn read_file(filename: &str) -> (DMatrix<f64>, Vec<Vec<usize>>) {
     let contents = read_to_string(filename)
         .unwrap_or_else(|e| panic!("Something went wrong reading {}: {}", filename, e));

@@ -36,7 +36,7 @@ fn main() {
                 max,
                 n,
                 debug,
-                0,
+                recursion_depth,
                 &timer,
             )
             .unwrap_or_else(|e| panic!("Regression went wrong: {}", e));

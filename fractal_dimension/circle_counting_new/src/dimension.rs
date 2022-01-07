@@ -5,7 +5,7 @@ use ansi_term::Color::Yellow;
 use linregress::{FormulaRegressionBuilder, RegressionDataBuilder};
 use nalgebra::{DMatrix, DVector};
 
-/// struct representing the circle counting task to be used by `crate::search::Searcher` to compute
+/// Struct representing the circle counting task to be used by `crate::search::Searcher` to compute
 /// the fractal dimension via the circle counting method
 struct CircleCountingTask {
     counts: Vec<usize>,
