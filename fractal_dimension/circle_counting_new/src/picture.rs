@@ -33,7 +33,7 @@ impl Task for PictureTask {
 
         self.svg.push_str(
             format!(
-                "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"none\" stroke=\"black\"/>\n",
+                "<circle cx=\"{}\" cy=\"{}\" r=\"{}\" fill=\"none\" stroke=\"black\" vector-effect=\"non-scaling-stroke\"/>\n",
                 cx, cy, r
             )
             .as_str(),
