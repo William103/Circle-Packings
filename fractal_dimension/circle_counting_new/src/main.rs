@@ -3,14 +3,16 @@
 mod command_args;
 mod dimension;
 mod gram_matrix;
+mod output_formats;
 mod parser;
 mod picture;
 mod search;
 mod time;
 
+use crate::output_formats::{format_matrix, format_vec_of_matrices};
 use command_args::Polyhedral;
 use dimension::fractal_dimension;
-use gram_matrix::{bounded_root_tuple, geometric_generators};
+use gram_matrix::{algebraic_generators, bounded_root_tuple, geometric_generators};
 use parser::read_file;
 use picture::render_packing;
 use structopt::StructOpt;
@@ -70,6 +72,24 @@ fn main() {
                 debug,
                 &timer,
             );
+        }
+
+        Polyhedral::Generators { data_file, format } => {
+            let (gram_matrix, faces) = read_file(&data_file);
+            let root = bounded_root_tuple(&gram_matrix, &faces);
+            let alggen = algebraic_generators(&gram_matrix, &faces);
+            let geomgen = geometric_generators(&gram_matrix, &faces, &root);
+            println!("File: {}\n", data_file);
+            println!("Gram matrix:\n{}\n", format_matrix(&gram_matrix, &format));
+            println!(
+                "Algebraic generators:\n{}\n",
+                format_vec_of_matrices(&alggen, &format)
+            );
+            println!(
+                "Geometric generators:\n{}\n",
+                format_vec_of_matrices(&alggen, &format)
+            );
+            println!("Bounded root tuple:\n{}", format_matrix(&root, &format));
         }
     }
 }
