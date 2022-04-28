@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cmd="./target/release/circle_counting dimension"
-flags="--max=$1 --n=100 --time"
+flags="--max=$1 --n=100 --time --debug"
 
 for dir in $(find data -type d)
 do
