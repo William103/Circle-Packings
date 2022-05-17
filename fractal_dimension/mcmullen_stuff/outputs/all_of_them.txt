@@ -1,4 +1,5 @@
-this is just information from the output files, but with only the maximum dual curvature and dimension for each polyhedron. see the files for more specific information about the tree. a few of these polyhedra leave something to be desired.
+this is just information from the output files, but with only the maximum dual curvature and dimension for each polyhedron. 
+see the files for more specific information about the tree. a few of these polyhedra leave something to be desired.
 
 
 TETRAHEDRON
@@ -35,8 +36,8 @@ DODECAHEDRON
 2500 ---------- 1.3354199621878144
 
 8-PYRAMID 
-1000 ----------
-2000 ----------
+1000 ---------- 1.3298766340794246
+2000 ---------- 1.3297545877645773
 
 9-PYRAMID
 1000 ---------- 1.3299420983466024
