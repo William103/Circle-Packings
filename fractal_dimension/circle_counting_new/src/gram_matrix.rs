@@ -78,7 +78,9 @@ fn invert_matrix(bt: f64, b: f64, h1: f64, h2: f64) -> DMatrix<f64> {
 }
 
 /// Given a gram matrix and face scheme, finds a bounded root tuple using `root_tuple`. Makes sure
-/// to avoid extra symmetry in the packing, as that can confuse it later on.
+/// to avoid extra symmetry in the packing, as that can confuse it later on. I don't actually think
+/// that is a problem any more, but I'm too scared to delete it. Picking nice tuples has other
+/// benefits too anyway.
 pub fn bounded_root_tuple(gram_matrix: &DMatrix<f64>, faces: &[Vec<usize>]) -> DMatrix<f64> {
     let mut root = None;
     for face in faces.iter().skip(1) {

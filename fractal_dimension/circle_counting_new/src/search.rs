@@ -59,7 +59,7 @@ impl<'a, T: Task> Searcher<'a, T> {
             println!();
             timer.time_stamp("Took ", " to count circles\n");
         } else {
-            timer.time_stamp("","");
+            timer.time_stamp("", "");
         }
     }
 
